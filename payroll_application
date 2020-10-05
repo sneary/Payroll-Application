@@ -1,0 +1,537 @@
+//******************************************************
+//
+// Employee payroll program
+// 
+// Name: Sean Neary 
+// 
+// Date: 10/31/2019 
+// 
+// Description: Program which determines gross pay for 
+// any number of hours worked in a given week
+// (including overtime) and displays them in an array.
+// Stores employee data as a linked list of employee structures
+// and calculates company-wide wage statistics.
+// 
+//******************************************************
+
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+#include <ctype.h>
+
+//constants 
+#define OVERTIME_RATE 1.5	//pay rate multiplier for overtime hours worked
+#define STD_HOURS 40.0		//max number of hours at standard pay rate
+
+//structures
+struct name
+{
+	char firstName[20];
+	char middleInitial[2];
+	char lastName[20];
+
+	struct name * next;
+};
+
+struct employee
+{
+  struct name * employee_name;
+	long int id_number;
+  float wage;
+	float hours;
+  float overtime_hours;
+  float gross;
+
+	struct employee * next;
+};
+
+struct employeeStats
+{
+	struct employee * total;
+	struct employee * average;
+	struct employee * minimum;
+	struct employee * maximum;
+};
+
+
+//function prototypes
+int linkedListLength(struct employee * head_ptr);
+void struct_sum(struct employee * emp_array_ptr, struct employee * sum_ptr);
+void struct_average(struct employee * emp_ptr, struct employee * average_ptr);
+void struct_min(struct employee * emp_array_ptr, struct employee * min_ptr);
+void struct_max(struct employee * emp_array_ptr, struct employee * max_ptr);
+void get_names (struct employee * emp, struct name * emp_name);
+void get_hours (struct employee * emp_ptr);
+void get_id_number (struct employee * emp_ptr);
+void get_wage (struct employee * emp_ptr);
+float overtime_hours_calc(float hours);
+float gross_calc(float hours, float wage);
+void print_data(struct employee * emp_ptr, struct employeeStats * stats);
+
+
+//******************************************************************************
+// Function: linkedListLength
+//
+// Purpose: Simple function for finding the number of nodes in a linked list
+//
+// Parameters: head_ptr - The pointer to the head of a linked list of 
+//                        employee structure nodes
+//
+// Returns: count - the number of nodes in the list stored as an integer
+//
+//******************************************************************************
+int linkedListLength(struct employee * head_ptr)
+{
+	int count = 0; //keeps count of each node
+
+	//loop runs through the linked list and ends when head_ptr is NULL
+	while(head_ptr)
+	{
+		count++;
+		head_ptr = head_ptr->next;
+	}
+
+	return count;
+}
+
+//******************************************************************************
+// Function: struct_sum
+//
+// Purpose: Finding the total wages, hours, etc. for any given set of employees
+//					and storing the totals in a separate employee structure.
+//
+// Parameters: *emp_list_ptr - a pointer to the beginning of a linked list of employees
+//             *sum_ptr - a pointer to the employee structure that will contain the totals
+//
+// Returns: None
+//
+//******************************************************************************
+void struct_sum(struct employee * emp_list_ptr, struct employee * sum_ptr)
+{
+	//loop iterates through each employee adding the values of each variable into
+	//a structure "sum" that stores a running total of all of the structure variables.
+	struct employee * current_ptr;
+	for(current_ptr = emp_list_ptr; current_ptr; current_ptr = current_ptr->next)
+	{
+		sum_ptr->wage += current_ptr->wage;
+		sum_ptr->hours += current_ptr->hours;
+		sum_ptr->overtime_hours += current_ptr->overtime_hours;
+		sum_ptr->gross += current_ptr->gross;
+	}
+}
+
+//******************************************************************************
+// Function: struct_average
+//
+// Purpose: Finding the average wages, hours, etc. for any given set of employees
+//					and storing the averages in a separate employee structure.
+//
+// Parameters: *emp_list_ptr - a pointer to the beginning of a linked list of employee structures
+//             average_ptr - a pointer to the employee structure where the averages will be stored
+//
+// Returns: none
+//
+//******************************************************************************
+void struct_average(struct employee * emp_list_ptr, struct employee * average_ptr)
+{
+	struct employee sum = {};
+	struct employee * sum_ptr = &sum;
+
+	struct_sum(emp_list_ptr, sum_ptr); //add up all the data
+	int listLength = linkedListLength(emp_list_ptr);
+
+	//Divide each total by the number of employees to find the average
+	average_ptr->wage = (sum_ptr->wage/listLength);
+	average_ptr->hours = (sum_ptr->hours/listLength);
+	average_ptr->overtime_hours = (sum_ptr->overtime_hours/listLength);
+	average_ptr->gross = (sum_ptr->gross/listLength);
+}
+
+//***************************************************************************************
+// Function: struct_min
+//
+// Purpose: Find the minimum wages, hours, etc. for a given set of employees
+//          and store them in an employee structure.
+//
+// Parameters: *emp_list_ptr - a pointer to the beginning of a linked list of employee structures
+//             *min_ptr - pointer to employee structure that will store the minimum values
+//
+// Returns: none
+//***************************************************************************************
+void struct_min(struct employee * emp_array_ptr, struct employee * min_ptr)
+{
+	*min_ptr = *emp_array_ptr; //initialize minimum to the first employee
+	
+	//iterate through the array of employees. testing each variable for lower and lower values.
+	//when the loop terminates minimum will store the minimum value for each variable
+	struct employee * current_ptr;
+	for(current_ptr = emp_array_ptr; current_ptr; current_ptr = current_ptr->next)
+	{
+		if(current_ptr->wage < min_ptr->wage)
+			min_ptr->wage = current_ptr->wage;
+		
+		if(current_ptr->hours < min_ptr->hours)
+			min_ptr->hours = current_ptr->hours;
+		
+		if(current_ptr->overtime_hours < min_ptr->overtime_hours)
+			min_ptr->overtime_hours = current_ptr->overtime_hours;
+		
+		if(current_ptr->gross < min_ptr->gross)
+			min_ptr->gross = current_ptr->gross;
+
+	}
+}
+
+//***************************************************************************************
+// Function: struct_max
+//
+// Purpose: Find the maximum wages, hours, etc. for a given set of employees
+//          and store them in an employee structure.
+//
+// Parameters: Parameters: *emp_list_ptr - a pointer to the beginning of a linked list of employee structures
+//             *max_ptr - pointer to employee structure that will store the maximum values
+//
+// Returns: maximum - employee structures with the maximum values from the input array
+//***************************************************************************************
+void struct_max(struct employee * emp_array_ptr, struct employee * max_ptr)
+{
+	*max_ptr = *emp_array_ptr; //initialize maximum to the first employee
+	
+	//iterate through the array of employees. testing each value for higher and higher values.
+	//when the loop terminates maximum will store the maximum value for each variable
+	struct employee * current_ptr;
+	for(current_ptr = emp_array_ptr; current_ptr; current_ptr = current_ptr->next)
+	{
+		if(current_ptr->wage > max_ptr->wage) 
+			max_ptr->wage = current_ptr->wage;
+		
+		if(current_ptr->hours > max_ptr->hours)
+			max_ptr->hours = current_ptr->hours;
+		
+		if(current_ptr->overtime_hours > max_ptr->overtime_hours)
+			max_ptr->overtime_hours = current_ptr->overtime_hours;
+		
+		if(current_ptr->gross > max_ptr->gross)
+			max_ptr->gross = current_ptr->gross;
+	}
+}
+
+//*****************************************************************************
+// Function: get_names
+//
+// Purpose: Prompt user for employee names and store them in an employee's name structure.
+//
+// Parameters: *emp - a pointer to an employee structure
+//             *emp_name - a pointer to a name structure
+//
+// Returns: none (assigns the provided name to emp->employee_name)
+//
+//*****************************************************************************
+void get_names (struct employee * emp, struct name * emp_name) 
+{ 
+	//initialize ordinals to keep track of which employee is being input and identify them to the user
+	char ordinals[2][10] = {"first", "next"};
+
+	static int function_count = 0; //keep track of how many times the function is run
+	if(function_count > 1) //if function is run more than twice just print next again
+		function_count = 1;
+	
+	//Get each name of employee from user 
+	printf("\nEnter first name of the %s employee: ", ordinals[function_count]); 
+	scanf ("%s", emp_name->firstName);
+
+	printf("\nEnter the middle initial of the %s employee: ", ordinals[function_count]); 
+	scanf ("%s", emp_name->middleInitial);
+
+	printf("\nEnter last name of the %s employee: ", ordinals[function_count]); 
+	scanf ("%s", emp_name->lastName);
+
+	emp->employee_name = emp_name; //advance to the next node
+
+	function_count++;
+
+} 
+
+//*****************************************************************************
+// Function: get_id_number
+//
+// Purpose: Prompt user for the ID number for a given employee identified by name. 
+//
+// Parameters: emp_ptr - a pointer to an employee structure
+//
+// Returns: none (assigns the provided ID number to emp_ptr->employee_name)
+//*****************************************************************************
+void get_id_number (struct employee * emp_ptr)
+{
+	long int id_num; //id number 
+
+	//Get ID number for each employee identifying each by first and last name
+	printf("\nEnter ID number for %s %s: ", emp_ptr->employee_name->firstName, emp_ptr->employee_name->lastName); 
+	scanf ("%li", &id_num); 
+	
+	emp_ptr->id_number = id_num;
+}
+
+//*****************************************************************************
+// Function: get_wage
+//
+// Purpose: Prompt user for the hourly wage for a given employee. 
+//
+// Parameters: emp_ptr - a pointer to an employee structure
+//
+// Returns: none (assigns the provided wage value to emp_ptr->wage)
+//
+//*****************************************************************************
+void get_wage (struct employee * emp_ptr)
+{
+	float wage;
+
+	//Get wage for each employee 
+	printf("\nEnter hourly wage for employee # %06li: ", emp_ptr->id_number); 
+	scanf ("%f", &wage); 
+
+	emp_ptr->wage = wage;
+}
+
+//**************************************************************
+// Function: get_hours 
+// 
+// Purpose: Obtains the number of hours worked for an employee 
+//          as input from the user
+// 
+// Parameters: emp_ptr - a pointer to an employee structure
+// 
+// Returns: none (assigns work hours input by the user to emp_ptr->hours)
+//  
+//**************************************************************
+void get_hours (struct employee * emp_ptr) 
+{ 
+	float hours; //hours worked in a given week 
+
+	//Get Hours for each employee 
+	printf("\nEnter hours worked by employee # %06li: ", emp_ptr->id_number); 
+	scanf ("%f", &hours); 
+
+	emp_ptr->hours = hours; 
+} 
+
+//*******************************************************************
+// Function: overtime_hours_calc
+//
+// Purpose: Calculate overtime hours for any given number 
+// of hours worked
+//
+// Parameters: hours - number of hours worked in a given week
+//
+// Returns: overtime_hours - Number of overtime hours
+//
+//*******************************************************************
+float overtime_hours_calc(float hours)
+{
+	float overtime_hours;
+	if(hours > STD_HOURS)	//test if there were any overtime hours worked
+	{
+		overtime_hours = hours - STD_HOURS; //calc overtime hours
+	}
+	//else no overtime worked return 0
+	else
+	{
+		overtime_hours = 0.0;
+	}
+
+	return overtime_hours;
+}
+
+//******************************************************
+// Function: gross_calc
+//
+// Purpose: Calculate gross pay for a given wage and 
+// number of hours
+//
+// Parameters: hours - number of hours worked
+//             wage - hourly wage of employee
+//
+// Returns: gross - gross pay
+//******************************************************
+float gross_calc(float hours, float wage)
+{
+	float overtime_hours; //number of ovetime hours
+	float overtime_pay; //amount of overtime pay
+	float std_pay; //amount of pay at the standard wage
+	float gross; //total amount of pay (including any overtime)
+	
+	overtime_hours = overtime_hours_calc(hours); //calc number of overtime hours
+	overtime_pay = (wage * OVERTIME_RATE) * overtime_hours; //calc amount of overtime pay
+	std_pay = wage * (hours - overtime_hours); //calc amount of pay at std pay rate
+	gross = std_pay + overtime_pay; //add std pay and overtime pay to get gross pay
+
+	return gross;
+}
+
+//**************************************************************
+// Function: print_header
+//
+// Purpose: Prints a standard header for diplaying 
+//          employee data.
+//
+// Parameters: None
+//
+// Returns: None
+//
+//**************************************************************
+void print_header()
+{
+	//print out report header
+  printf ("\n\t\tSean Neary, C Programming, Assignment 08\n\n"); 
+  printf ("------------------------------------------------------------\n"); 
+  printf ("\tEmployee Name       Clock#  Wage  Hours   OT     Gross\n"); 
+  printf ("------------------------------------------------------------\n"); 
+}
+
+//**************************************************************
+// Function: print_data  
+// 
+// Purpose: Prints out all the employee information in a
+// nice and orderly table format.
+// 
+// Parameters: *employeeData - pointer to the beginning of an array of employee structures.
+//             *stats - pointer to employeeStats structure for storing employee statistics.
+// 
+// Returns: Nothing (call by reference)
+//  
+//**************************************************************
+void print_data (struct employee * employeeData, struct employeeStats * stats)
+{	
+	int i = 0; //variable for counting number of employees
+	
+	//loop prints data for each individual employee
+	struct employee * current_ptr;
+	for(current_ptr = employeeData; current_ptr; current_ptr = current_ptr->next)
+	{
+		char fullName[20];
+
+		//build full name in desired format and store it in fullName
+		strcpy(fullName, current_ptr->employee_name->lastName);
+		strcat(fullName, ", ");
+		strcat(fullName, current_ptr->employee_name->firstName);
+		strcat(fullName, " ");
+		strcat(fullName, current_ptr->employee_name->middleInitial);
+
+		printf ("\t%-20.20s %06li %5.2f %5.1f %5.1f %10.2f\n", fullName, current_ptr->id_number, current_ptr->wage,
+					 current_ptr->hours, current_ptr->overtime_hours, current_ptr->gross);
+		
+		i++;
+	}
+
+	//print statistics for all employees
+	printf ("------------------------------------------------------------\n");
+	printf("\tTotal   %25.2f %5.1f %5.1f %10.2f\n", stats->total->wage, stats->total->hours, stats->total->overtime_hours, stats->total->gross);
+	printf("\tAverage %25.2f %5.1f %5.1f %10.2f\n", stats->average->wage, stats->average->hours, stats->average->overtime_hours, stats->average->gross);
+	printf("\tMinimum %25.2f %5.1f %5.1f %10.2f\n", stats->minimum->wage, stats->minimum->hours, stats->minimum->overtime_hours, stats->minimum->gross);
+	printf("\tMaximum %25.2f %5.1f %5.1f %10.2f\n", stats->maximum->wage, stats->maximum->hours, stats->maximum->overtime_hours, stats->maximum->gross);
+	printf("\n\tTotal number of employees: %i", i);
+}
+
+
+int main() 
+{ 
+	struct employee *current_ptr,   // pointer to current node
+                  *head_ptr;      // always points to first node
+ 
+  // Set up storage for first employee node
+  head_ptr = (struct employee *) malloc (sizeof(struct employee));
+  current_ptr = head_ptr;
+
+	struct name *current_name_ptr,   // pointer to current node
+              *head_name_ptr;      // always points to first node
+ 
+  // Set up storage for first name node
+  head_name_ptr = (struct name *) malloc (sizeof(struct name));
+  current_name_ptr = head_name_ptr;
+
+	struct employeeStats stats = {}; //employeeStats structure for storing employee stats such as totals, averages, etc.
+
+	//initialize structures for storing employee stats
+	struct employee totals, averages, minimums, maximums = {};
+	struct employeeStats * emp_stats = &stats;
+	
+	emp_stats->total = &totals;
+	emp_stats->average = &averages;
+	emp_stats->minimum = &minimums;
+	emp_stats->maximum = &maximums;
+
+  //Prompt for input values from the screen
+  printf ("This is a program to calculate gross pay.\n"); 
+  printf ("You will be prompted for employee data.\n\n");
+
+  //variables for loop control
+	char answer[80];
+	int more_data = 1;
+	int value;
+	//loop collects data for each employee. 
+	//loop runs until last node of linked list
+  while(more_data)
+  {
+		// Function order is important! get_names must be run first.
+		// get_id_number must be run second. After these, function order is not important.
+
+		//prompt user for the names of each employee
+		get_names(current_ptr, current_name_ptr);
+		
+		//prompt user for the id number for each employee
+		get_id_number(current_ptr);
+
+		//prompt user for employee hourly wage
+		get_wage(current_ptr);
+
+		//prompt user for the hours worked by each employee and store it in that employees data structure
+		get_hours(current_ptr);
+		
+		current_ptr->overtime_hours = overtime_hours_calc(current_ptr->hours); //calc overtime hours
+
+		//calculate gross pay and store it in that employees data structure
+		current_ptr->gross = gross_calc(current_ptr->hours, current_ptr->wage);
+
+		printf("\nWould you like to add another employee? (y/n): ");
+    scanf("%s", answer);
+ 
+    // Ask user if they want to add another employee
+    if ((value = toupper(answer[0])) != 'Y')
+    {
+      current_ptr->next = (struct employee *) NULL;
+			current_name_ptr->next = (struct name *) NULL;
+      more_data = 0; 
+    }
+    else
+    {
+    	// set the next pointer of the current node to point to the new node
+    	current_ptr->next = (struct employee *) malloc (sizeof(struct employee));
+    	// move the current node pointer to the new node
+    	current_ptr = current_ptr->next;
+
+			//same for name pointer
+			current_name_ptr->next = (struct name *) malloc(sizeof(struct name));
+			current_name_ptr = current_name_ptr->next;
+    }
+
+	} //end loop
+
+	//calculate totals for each variable
+	struct_sum(head_ptr, emp_stats->total);
+
+	//calculate averages for each variable
+	struct_average(head_ptr, emp_stats->average);
+	
+	//calculate minimums
+	struct_min(head_ptr, emp_stats->minimum);
+	
+	//calculate maximums
+	struct_max(head_ptr, emp_stats->maximum);
+
+	//Print header and then print data for each employee
+	print_header(); 
+	print_data(head_ptr, emp_stats);
+
+  return (0); 
+
+} //end main
